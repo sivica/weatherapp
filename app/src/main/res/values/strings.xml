@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Weather application</string>
+    <string name="open_weather_api_key">9b6ce6b0359c47d4e3e8a30b00d2e1b3</string>
+    <string name="open_weather_failed">Weather request failed</string>
+    <string name="location_failed">Location request failed</string>
+    <string name="city">city</string>
+</resources>
