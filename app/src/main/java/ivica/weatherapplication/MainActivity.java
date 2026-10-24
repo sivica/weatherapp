@@ -89,7 +89,12 @@ public class MainActivity extends AppCompatActivity {
         return OpenWeather.getClient().create(OpenWeatherService.class);
     }
 
-    protected String weatherApiKey() { return getString(R.string.open_weather_api_key); }
+    protected String weatherApiKey() {
+        // Credentials must never be sourced from a tracked resource. Fail closed
+        // if the legacy empty placeholder is accidentally populated.
+        if (!getString(R.string.open_weather_api_key).isEmpty()) return "";
+        return BuildConfig.OPENWEATHER_API_KEY;
+    }
     protected boolean usesStartupLocation() { return true; }
 
     private void render(WeatherViewModel.State state) {

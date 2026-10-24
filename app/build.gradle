@@ -1,3 +1,6 @@
+import com.android.build.api.variant.BuildConfigField
+import groovy.json.JsonOutput
+
 plugins {
     id 'com.android.application'
 }
@@ -17,6 +20,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField "String", "OPENWEATHER_API_KEY", '""'
     }
 
     buildTypes {
@@ -31,6 +35,48 @@ android {
     }
     buildFeatures {
         viewBinding = true
+        buildConfig = true
+    }
+}
+
+// The provider is attached only to debug and is not evaluated by release tasks.
+androidComponents {
+    onVariants(selector().withBuildType("debug")) { variant ->
+        variant.buildConfigFields.put("OPENWEATHER_API_KEY", providers.provider {
+            def path = rootProject.file("debug-weather.properties").toPath()
+            String key = ""
+            if (java.nio.file.Files.exists(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                if (!java.nio.file.Files.isRegularFile(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                    throw new GradleException("Debug weather configuration must be a regular local file.")
+                }
+                if (java.nio.file.Files.getFileStore(path).supportsFileAttributeView("posix")) {
+                    def expected = java.nio.file.attribute.PosixFilePermissions.fromString("rw-------")
+                    if (java.nio.file.Files.getPosixFilePermissions(path) != expected) {
+                        throw new GradleException("Debug weather configuration requires owner-only permissions (0600).")
+                    }
+                }
+                try {
+                    def properties = new Properties()
+                    java.nio.file.Files.newInputStream(path).withCloseable { properties.load(it) }
+                    key = properties.getProperty("OPENWEATHER_API_KEY", "").trim()
+                    if (key && !(key ==~ /[A-Za-z0-9]{16,128}/)) {
+                        throw new IllegalArgumentException()
+                    }
+                } catch (Exception ignored) {
+                    throw new GradleException("Invalid debug weather configuration; use the local key-entry script.")
+                }
+            }
+            new BuildConfigField("String", JsonOutput.toJson(key), "Local debug configuration only")
+        })
+    }
+}
+
+// Never export credential-bearing debug outputs to a build cache or serialize
+// debug configuration into a configuration cache. Normal local outputs stay private.
+tasks.configureEach {
+    if (name.toLowerCase(Locale.ROOT).contains("debug")) {
+        outputs.doNotCacheIf("Debug outputs can contain a local API key") { true }
+        notCompatibleWithConfigurationCache("Debug configuration can contain a local API key")
     }
 }
 

@@ -121,9 +121,13 @@ public class WeatherScreenTest {
         }
     }
 
-    @Test public void productionMissingKeyShowsConfigurationMessage() {
-        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+    @Test public void missingKeyMessageSurvivesRecreationWithoutRequests() {
+        // Every screen test uses the fake transport, even when a local debug key exists.
+        FixtureWeatherActivity.fixture.configured = false;
+        try (ActivityScenario<FixtureWeatherActivity> scenario = ActivityScenario.launch(FixtureWeatherActivity.class)) {
+            scenario.recreate();
             onView(withId(R.id.error_text_view)).check(matches(withText(R.string.weather_key_missing)));
+            assertTrue(FixtureWeatherActivity.fixture.calls.isEmpty());
         }
     }
 

@@ -54,25 +54,63 @@ Compatibility references:
 - Geocoding is asynchronous on Android 13+ and runs on a background executor on
   older versions. System-bar, cutout and keyboard insets support edge-to-edge UI.
 
-## Credentials
+## Private debug key configuration
 
-`open_weather_api_key` is an empty, nonsecret placeholder. Without a configured
-key, the app shows a configuration message and blocks weather requests and
-startup location lookup. Build, lint and fixture tests need no provider key.
+The source `open_weather_api_key` resource stays empty. A populated tracked placeholder fails closed instead of being used as a key.
+The generated `BuildConfig.OPENWEATHER_API_KEY` is empty for release and is populated only for
+debug from the ignored root file `debug-weather.properties`. Release generation
+does not read that file. Without a local key, the existing configuration message
+and request/location guards remain active.
 
-The previously embedded key was removed from current source. **Its removal does
-not revoke it or remove it from upstream Git history.** No provider-account
-change, replacement-key configuration or history rewrite is included. Do not
-restore the exposed value or use it for validation.
+On macOS, the local masked-entry helper can save an existing API key directly:
 
-Before live validation, handle the exposed key in the provider account and choose
-a suitable secret setup outside tracked source. A key bundled in an APK remains
-extractable; a service proxy is an option for a future distributed app. No such
-setup or proxy is implemented in this milestone.
+```sh
+python3 scripts/configure_debug_weather_key.py
+```
 
-OpenWeather's [key-management FAQ](https://openweathermap.org/faq) explains that
-accounts must retain at least one key and deletion is offered when more than one
-exists. Rotation and a small live-provider acceptance check remain separate work.
+It requests only the API key, not an account password. The native dialog masks
+input. The value passes through a private process pipe into the ignored file,
+never through command arguments, environment variables, chat or console output.
+The helper creates no temporary key copy, refuses links or an unsafe destination,
+and sets owner read/write permissions (`0600`) before writing. Debug generation
+also rejects a configuration file with unsafe permissions. Saving does not build,
+launch the app, contact a provider or change an account. Real key entry has not
+been performed as part of this change.
+
+A configured debug build embeds an **extractable** key in its APK, generated code,
+classes and local build state. Keep these outputs private; do not publish them,
+attach them to a PR, or use verbose logging/build scans. Debug task outputs are
+excluded from build caching and debug tasks cannot store a configuration cache.
+Use `--no-build-cache --no-configuration-cache` for private configured builds.
+Launching a configured production screen can request startup weather after
+location access; live tests require a separate explicit decision. The entry
+helper itself never launches or makes a request.
+
+All instrumentation screen tests use the in-memory fixture transport, independent
+of any configured debug key. They do not launch the provider-backed activity.
+The release field/resource remain empty even when the debug file is present.
+
+Before entering a real key, run the fixture-only configuration checks:
+
+```sh
+python3 -m unittest discover -s scripts -p 'test_debug_key_entry.py'
+python3 scripts/verify_debug_key_setup.py
+```
+
+The integration checker refuses to run if an existing local key file is present;
+it never reads or overwrites a user credential. It uses a synthetic marker to
+verify debug inclusion, release BuildConfig/resource/APK exclusion, release
+independence from a malformed file, and rejection of unsafe permissions. It then
+removes its temporary local configuration and restores an empty-key debug build.
+An unsigned release APK is built only for this fixture isolation check; it is not
+signed or published.
+
+The historical exposed key was removed from source in the prior milestone. Its
+removal does not revoke it or remove it from upstream history. Provider-side
+credentials and rotation are handled separately; no account action, replacement
+key creation or cloud secret storage is part of this code change. Do not restore
+historical values. A service proxy remains an option for a future distributed app.
+
 
 ## Validation
 
@@ -97,6 +135,9 @@ The final target-37 APK was checked on 2026-10-24:
   overrides are used. Non-lint Java 8, legacy geocoder and Gradle configuration
   deprecation messages remain visible.
 - Debug fixture activities are absent from the release merged manifest.
+- Debug configuration checks: 6 masked-entry helper tests and the fixture-only
+  debug/release isolation checks pass. The compiled release key resource is empty,
+  and the local key path is verified ignored/untracked and fixture files use `0600`.
 
 The non-exported fixture screens and in-memory transport live only in
 `app/src/debug`. Their calls have no HTTP implementation and use no provider
@@ -166,5 +207,6 @@ and no paid service or provider credential was used.
   search, but does not validate live geocoding/GPS accuracy or provider responses.
 - Non-lint Java 8, legacy geocoder and Gradle configuration deprecation messages
   remain visible; no suppression was added to hide them.
-- No release APK, store upload or deployment has been performed. This is a review
-  milestone and is not yet a release-ready product.
+- An unsigned release APK was built with synthetic input only for key-isolation
+  verification. No release signing, store upload or deployment was performed.
+  This is not yet a release-ready product.
