@@ -15,3 +15,7 @@
 local.properties
 
 **/build/
+
+# Owner-only local debug credential; never commit.
+/debug-weather.properties
+**/__pycache__/
