@@ -9,7 +9,7 @@ import sys
 import zipfile
 import xml.etree.ElementTree as E
 
-from configure_debug_weather_key import save_key
+from configure_debug_weather_key import open_configuration
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "debug-weather.properties"
@@ -72,6 +72,23 @@ def release_resource_empty():
     return False
 
 
+def fixture_identity(info):
+    return (info.st_dev, info.st_ino, info.st_mtime_ns, info.st_size)
+
+
+def remove_fixture(path, identity):
+    """Never remove a pre-existing or independently replaced configuration."""
+    if identity is None:
+        return
+    try:
+        current = path.lstat()
+    except FileNotFoundError:
+        return
+    if fixture_identity(current) != identity:
+        raise RuntimeError("Local configuration changed; it was left untouched.")
+    path.unlink()
+
+
 def main():
     if CONFIG.exists() or CONFIG.is_symlink():
         print("Stopped: existing local configuration was not read or changed.", file=sys.stderr)
@@ -82,8 +99,23 @@ def main():
     if ignored.returncode or tracked.returncode == 0:
         print("Stopped: local key file must be ignored and untracked.", file=sys.stderr)
         return 2
+    identity = None
+    descriptor = None
+    def write_fixture(payload):
+        nonlocal identity
+        if identity is not None and fixture_identity(CONFIG.lstat()) != identity:
+            raise RuntimeError("Local configuration changed; it was left untouched.")
+        os.fchmod(descriptor, 0o600)
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        os.ftruncate(descriptor, 0)
+        with os.fdopen(descriptor, "w", encoding="ascii", closefd=False) as output:
+            output.write(payload)
+            output.flush()
+            os.fsync(descriptor)
+        identity = fixture_identity(os.fstat(descriptor))
     try:
-        save_key(CONFIG, FIXTURE)
+        descriptor = open_configuration(CONFIG, exclusive=True)
+        write_fixture("OPENWEATHER_API_KEY=" + FIXTURE + "\n")
         gradle("fixture debug/release isolation", [":app:assembleDebug", ":app:assembleRelease"])
         assert field("debug") == FIXTURE
         assert field("release") == ""
@@ -94,18 +126,22 @@ def main():
         assert not next(value for value in resource if value.get("name") == "open_weather_api_key").text
         print("PASS: fixture reaches debug only; release BuildConfig, resource and APK exclude it.")
 
-        CONFIG.write_text("OPENWEATHER_API_KEY=" + r"\uNOTHEX" + "\n", encoding="ascii")
+        write_fixture("OPENWEATHER_API_KEY=" + r"\uNOTHEX" + "\n")
         gradle("release ignores malformed local file", [":app:generateReleaseBuildConfig", "--rerun-tasks"])
         assert field("release") == ""
         print("PASS: release generation does not read malformed local debug configuration.")
 
-        save_key(CONFIG, FIXTURE)
-        CONFIG.chmod(0o644)
+        write_fixture("OPENWEATHER_API_KEY=" + FIXTURE + "\n")
+        os.fchmod(descriptor, 0o644)
         result = gradle("reject unsafe permissions", [":app:generateDebugBuildConfig"], expect_success=False)
         assert "owner-only permissions (0600)" in result
         print("PASS: debug refuses a local key file with unsafe permissions.")
     finally:
-        CONFIG.unlink(missing_ok=True)
+        try:
+            remove_fixture(CONFIG, identity)
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
     gradle("restore missing-key debug build", [":app:assembleDebug", ":app:lintDebug",
             ":app:testDebugUnitTest", ":app:assembleDebugAndroidTest"])
     assert field("debug") == ""

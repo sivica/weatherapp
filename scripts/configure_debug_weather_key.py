@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """macOS masked entry; stores only the ignored owner-only local configuration."""
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -15,17 +16,30 @@ class ConfigurationError(Exception):
     pass
 
 
-def save_key(path, key):
-    """Never put a key into argv, environment, logs, or a temporary file."""
-    if not re.fullmatch(r"[A-Za-z0-9]{16,128}", key):
-        raise ConfigurationError("Invalid API-key format; no value was displayed.")
-    flags = os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW
+def open_configuration(path, *, exclusive=False):
+    """Claim an owner-only file and lock out concurrent entry/checker writes."""
+    flags = os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW
+    if exclusive:
+        flags |= os.O_EXCL
     descriptor = os.open(path, flags, 0o600)
     try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
         info = os.fstat(descriptor)
         if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_nlink != 1:
             raise ConfigurationError("Destination must be a regular file owned only by this user.")
         os.fchmod(descriptor, 0o600)
+        return descriptor
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
+def save_key(path, key, *, exclusive=False):
+    """Never put a key into argv, environment, logs, or a temporary file."""
+    if not re.fullmatch(r"[A-Za-z0-9]{16,128}", key):
+        raise ConfigurationError("Invalid API-key format; no value was displayed.")
+    descriptor = open_configuration(path, exclusive=exclusive)
+    try:
         os.ftruncate(descriptor, 0)
         with os.fdopen(descriptor, "w", encoding="ascii", closefd=False) as output:
             output.write("OPENWEATHER_API_KEY=" + key + "\n")

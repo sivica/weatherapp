@@ -98,7 +98,9 @@ python3 scripts/verify_debug_key_setup.py
 ```
 
 The integration checker refuses to run if an existing local key file is present;
-it never reads or overwrites a user credential. It uses a synthetic marker to
+it never reads or overwrites a user credential. File creation is exclusive, and
+cleanup leaves an independently replaced or edited configuration untouched.
+A file lock prevents concurrent entry from overwriting the checker's fixture. It uses a synthetic marker to
 verify debug inclusion, release BuildConfig/resource/APK exclusion, release
 independence from a malformed file, and rejection of unsafe permissions. It then
 removes its temporary local configuration and restores an empty-key debug build.
@@ -135,7 +137,7 @@ The final target-37 APK was checked on 2026-10-24:
   overrides are used. Non-lint Java 8, legacy geocoder and Gradle configuration
   deprecation messages remain visible.
 - Debug fixture activities are absent from the release merged manifest.
-- Debug configuration checks: 6 masked-entry helper tests and the fixture-only
+- Debug configuration checks: 9 masked-entry helper tests and the fixture-only
   debug/release isolation checks pass. The compiled release key resource is empty,
   and the local key path is verified ignored/untracked and fixture files use `0600`.
 

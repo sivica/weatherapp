@@ -8,7 +8,8 @@ import unittest
 from unittest.mock import patch
 import subprocess
 
-from configure_debug_weather_key import ConfigurationError, prompt_key, save_key
+from configure_debug_weather_key import ConfigurationError, open_configuration, prompt_key, save_key
+from verify_debug_key_setup import fixture_identity, remove_fixture
 
 FIXTURE = "FixtureWeatherKey0123456789ABCDEF"
 
@@ -61,6 +62,38 @@ class KeyEntryTests(unittest.TestCase):
                 save_key(path, invalid)
             self.assertNotIn(invalid, str(result.exception))
             self.assertFalse(path.exists())
+
+    def test_exclusive_save_does_not_overwrite_an_existing_configuration(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "debug-weather.properties"
+            path.write_text("existing user data")
+            with self.assertRaises(FileExistsError):
+                save_key(path, FIXTURE, exclusive=True)
+            remove_fixture(path, None)
+            self.assertEqual("existing user data", path.read_text())
+
+    def test_fixture_cleanup_preserves_an_independently_replaced_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "debug-weather.properties"
+            save_key(path, FIXTURE, exclusive=True)
+            original = path.stat()
+            path.rename(Path(directory) / "original-fixture")
+            path.write_text("replacement user data")
+            with self.assertRaises(RuntimeError):
+                remove_fixture(path, fixture_identity(original))
+            self.assertEqual("replacement user data", path.read_text())
+
+    def test_concurrent_entry_cannot_overwrite_a_locked_fixture(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "debug-weather.properties"
+            save_key(path, FIXTURE)
+            descriptor = open_configuration(path)
+            try:
+                with self.assertRaises(BlockingIOError):
+                    save_key(path, "DifferentFixtureKey0123456789")
+                self.assertEqual("OPENWEATHER_API_KEY=" + FIXTURE + "\n", path.read_text())
+            finally:
+                os.close(descriptor)
 
     @patch("configure_debug_weather_key.subprocess.run")
     def test_cancel_has_no_value_and_uses_masked_dialog(self, run):
