@@ -78,17 +78,21 @@ exists. Rotation and a small live-provider acceptance check remain separate work
 
 The final target-37 APK was checked on 2026-10-24:
 
-- Debug build, instrumentation compilation and release-manifest validation passed.
+- Clean network-enabled and clean offline debug builds, unit tests, lint and
+  instrumentation compilation passed. Release-manifest validation passed earlier.
 - **21 unit tests passed**, with zero failures, errors or skips. Fixtures and fakes
   cover weather mapping, malformed responses, cancellation, stale callbacks,
   missing-key behavior and location-permission coordination.
-- **9 instrumentation tests passed** on an Android 16/API 36 ARM64 emulator, with
-  zero failures, errors or skips. They cover loading/success/error/retry, current
+- **9 instrumentation tests passed on Android 17/API 37 ARM64**, with zero
+  failures, errors or skips; the earlier API 36 run also passed all nine. They
+  cover loading/success/error/retry, current
   temperature and wind units, repeated searches, recreation, landscape rotation,
   missing-key protection, actual location-permission refusal followed by manual
-  search, and application package identity.
-- The emulator used read-only mode without a data wipe or saved snapshot and was
-  shut down after verification. No physical phone was paired or used.
+  search, and application package identity. The success and landscape tests now
+  also assert that toolbar and weather content avoid system bars and cutouts.
+- API 37 QA used a new isolated Pixel 7 AVD in read-only mode without a data wipe
+  or saved snapshot; it was shut down after verification. Existing AVDs were not
+  modified. No physical phone was paired or used.
 - **Lint: 0 errors and 0 warnings.** No baseline, disabled checks or severity
   overrides are used. Non-lint Java 8, legacy geocoder and Gradle configuration
   deprecation messages remain visible.
@@ -108,16 +112,59 @@ Reports are generated under `app/build/reports/`; instrumentation XML results ar
 under `app/build/outputs/androidTest-results/connected/`. Build outputs, local
 logs, device data and screenshots are not committed.
 
+## Offline dependency resolution
+
+An offline miss for `androidx.recyclerview:recyclerview:1.2.1` was reproduced with
+an experimental shared read-only cache attached. The cached AAR matched Google's
+published checksum; the problem was in artifact resolution/cache metadata, not a
+corrupt binary. Refreshes within that shared-cache configuration were insufficient.
+Refreshing the selected component in a normal writable cache and warming the full
+app/build/test graph repaired offline resolution. No dependency version change or
+shared-cache purge was needed.
+
+For a similar cache state, use the ordinary writable Gradle cache, refresh/warm
+only the project's required graph, then verify from clean project outputs:
+
+```sh
+unset GRADLE_RO_DEP_CACHE
+./gradlew --no-daemon --refresh-dependencies :app:assembleDebug :app:lintDebug :app:testDebugUnitTest :app:assembleDebugAndroidTest
+./gradlew --no-daemon --offline clean :app:clean :app:assembleDebug :app:lintDebug :app:testDebugUnitTest :app:assembleDebugAndroidTest
+```
+
+The clean network-enabled and offline passes each executed all 83 tasks, including
+21 passing unit tests and lint with zero issues. An additional offline build with
+the old read-only cache attached also passed after the writable-cache metadata
+was populated. Existing shared caches were neither purged nor changed. Gradle's
+[cache documentation](https://docs.gradle.org/current/userguide/dependency_caching.html)
+explains the separate artifact and repository-metadata caches and recommends
+immutable snapshots, rather than a live installation cache, for read-only sharing.
+
+## API 37 test environment
+
+The official stable image was `system-images;android-37.0;google_apis;arm64-v8a`,
+revision 8 (Android 17/API 37.0), downloaded and installed through the SDK manager
+in a task-isolated SDK directory. It requires Emulator 37.2.11 or newer, so
+Emulator 37.2.12 was installed there as well; the pre-existing emulator stayed
+unchanged. Existing platform-tools were reused without downloading another copy.
+
+| Item | Download size | Installed disk usage |
+| --- | --- | --- |
+| API 37.0 Google APIs ARM64 image r8 | 2,104,098,168 bytes | approximately 5.3 GiB |
+| Required Emulator 37.2.12 | 416,112,708 bytes | approximately 1.2 GiB |
+| Isolated AVD data/configuration | no separate download | approximately 35 MiB |
+
+The isolated SDK/AVD area totals approximately 6.6 GiB and is retained for reuse.
+Free disk was approximately 163 GiB before installation and 156 GiB after QA and
+shutdown. No existing device was wiped, no unrelated SDK package was updated,
+and no paid service or provider credential was used.
+
 ## Remaining limits
 
-- API 37 runtime acceptance is pending: a compile SDK was installed, but no API 37
-  runtime image was available. No new image was downloaded for this milestone.
 - API 24/31/35 device coverage, process-death restoration, broader accessibility
   and OEM testing, live weather validation and provider-key rotation are pending.
-- Network-enabled dependency resolution passes. Offline resolution currently
-  fails for `androidx.recyclerview:recyclerview:1.2.1` at
-  `:app:dataBindingMergeDependencyArtifactsDebug` despite its AAR being cached.
-  The exact cache-metadata cause is unresolved. This does not introduce network
-  weather requests into fixture tests.
+- The device suite uses fixture weather. It covers permission refusal and manual
+  search, but does not validate live geocoding/GPS accuracy or provider responses.
+- Non-lint Java 8, legacy geocoder and Gradle configuration deprecation messages
+  remain visible; no suppression was added to hide them.
 - No release APK, store upload or deployment has been performed. This is a review
   milestone and is not yet a release-ready product.

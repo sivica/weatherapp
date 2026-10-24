@@ -39,6 +39,7 @@ public class WeatherScreenTest {
                     String.format(Locale.getDefault(), "%.1f °C", 12.5))));
             onView(withId(R.id.wind_text_view)).check(matches(withText(
                     String.format(Locale.getDefault(), "%.1f km/h", 18.0))));
+            scenario.onActivity(WeatherScreenTest::assertContentAvoidsSystemBars);
             screenshot("weather-fixture-success.png");
         }
     }
@@ -105,6 +106,7 @@ public class WeatherScreenTest {
             }
             assertTrue("Landscape rotation did not occur", landscape.get());
             onView(withId(R.id.city_text_view)).check(matches(withText("Zagreb")));
+            scenario.onActivity(WeatherScreenTest::assertContentAvoidsSystemBars);
             scenario.onActivity(activity -> assertEquals(1, FixtureWeatherActivity.fixture.calls.size()));
         }
     }
@@ -149,6 +151,32 @@ public class WeatherScreenTest {
             scenario.onActivity(activity -> ((SearchView) activity.findViewById(R.id.search_view)).setQuery("Manual", true));
             scenario.onActivity(activity -> FixtureWeatherActivity.fixture.calls.get(0).succeed());
             onView(withId(R.id.city_text_view)).check(matches(withText("Manual")));
+        }
+    }
+
+    private static void assertContentAvoidsSystemBars(MainActivity activity) {
+        assertEquals("The QA APK must use the final target SDK", 37,
+                activity.getApplicationInfo().targetSdkVersion);
+        android.view.View root = activity.findViewById(R.id.toolbar).getRootView();
+        androidx.core.view.WindowInsetsCompat windowInsets =
+                androidx.core.view.ViewCompat.getRootWindowInsets(root);
+        assertNotNull("Window insets must be available", windowInsets);
+        androidx.core.graphics.Insets safe = windowInsets.getInsets(
+                androidx.core.view.WindowInsetsCompat.Type.systemBars()
+                        | androidx.core.view.WindowInsetsCompat.Type.displayCutout());
+        int[] origin = new int[2];
+        root.getLocationOnScreen(origin);
+        for (int id : new int[] {R.id.toolbar, R.id.city_text_view,
+                R.id.temperature_text_view, R.id.wind_text_view}) {
+            android.view.View content = activity.findViewById(id);
+            int[] position = new int[2];
+            content.getLocationOnScreen(position);
+            assertTrue("Content overlaps the status bar/cutout", position[1] >= origin[1] + safe.top);
+            assertTrue("Content overlaps the left cutout", position[0] >= origin[0] + safe.left);
+            assertTrue("Content overlaps the right system bar", position[0] + content.getWidth()
+                    <= origin[0] + root.getWidth() - safe.right);
+            assertTrue("Content overlaps the navigation bar", position[1] + content.getHeight()
+                    <= origin[1] + root.getHeight() - safe.bottom);
         }
     }
 
