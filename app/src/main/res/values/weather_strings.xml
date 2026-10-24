@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="weather_key_missing">Weather service is not configured.</string>
+    <string name="weather_city_missing">Enter a city name.</string>
+    <string name="weather_loading">Loading weather…</string>
+</resources>

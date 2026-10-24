@@ -1,57 +1,51 @@
 package ivica.weatherapplication;
 
-import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.location.Location;
+import android.Manifest;
 import android.os.Bundle;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.ViewModel;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.appcompat.widget.SearchView;
-import androidx.core.app.ActivityCompat;
-
-import com.dmgdesignuk.locationutils.easyaddressutility.EasyAddressUtility;
-import com.dmgdesignuk.locationutils.easylocationutility.EasyLocationUtility;
-import com.dmgdesignuk.locationutils.easylocationutility.LocationRequestCallback;
-
-import java.net.HttpURLConnection;
-import java.util.HashMap;
-import java.util.Map;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.activity.EdgeToEdge;
+import androidx.core.view.WindowInsetsCompat;
 
 import ivica.weatherapplication.databinding.ActivityMainBinding;
-import ivica.weatherapplication.model.CurrentWeather;
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
 
-public class MainActivity extends AppCompatActivity implements ActivityCompat.OnRequestPermissionsResultCallback {
+public class MainActivity extends AppCompatActivity {
 
-    private static final String TAG = MainActivity.class.getSimpleName();
-    private static final String APPID = "appId";
-    private static final String UNITS = "units";
-    private static final String METRIC = "metric";
-    private static final String QUERY = "q";
-
-    private EasyLocationUtility locationUtility;
-    private EasyAddressUtility addressUtility;
-    private Map<String, String> options;
-    private OpenWeatherService openWeatherService;
-    private CurrentWeather currentWeather;
+    private AndroidCityLocation cityLocation;
+    private StartupLocationController startupLocation;
+    private WeatherViewModel weatherModel;
     private ActivityMainBinding binding;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         binding = ActivityMainBinding.inflate(getLayoutInflater());
+        EdgeToEdge.enable(this);
         setContentView(binding.getRoot());
+        ViewCompat.setOnApplyWindowInsetsListener(binding.getRoot(), (view, windowInsets) -> {
+            Insets safe = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars()
+                    | WindowInsetsCompat.Type.displayCutout() | WindowInsetsCompat.Type.ime());
+            view.setPadding(safe.left, safe.top, safe.right, safe.bottom);
+            return windowInsets;
+        });
+        ViewCompat.requestApplyInsets(binding.getRoot());
         setSupportActionBar(binding.toolbar);
         binding.searchView.setQueryHint(getString(R.string.city));
         binding.searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextSubmit(String query) {
+                startupLocation.stop();
                 getCurrentWeather(query);
-                return false;
+                binding.searchView.clearFocus();
+                return true;
             }
 
             @Override
@@ -60,82 +54,72 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
             }
         });
 
-        locationUtility = new EasyLocationUtility(this);
-        addressUtility = new EasyAddressUtility(this.getApplicationContext());
-        getLastLocation();
-
-        openWeatherService = OpenWeather.getClient().create(OpenWeatherService.class);
-        options = new HashMap<>();
-        options.put(APPID, getString(R.string.open_weather_api_key));
-        options.put(UNITS, METRIC);
+        weatherModel = new ViewModelProvider(this, new ViewModelProvider.Factory() {
+            @NonNull @Override public <T extends ViewModel> T create(@NonNull Class<T> modelClass) {
+                return modelClass.cast(new WeatherViewModel(weatherService(), weatherApiKey()));
+            }
+        }).get(WeatherViewModel.class);
+        weatherModel.state().observe(this, this::render);
+        if (savedInstanceState != null) {
+            binding.searchView.setQuery(savedInstanceState.getString("search_query", ""), false);
+        }
+        ActivityResultLauncher<String[]> permissionRequest = registerForActivityResult(
+                new ActivityResultContracts.RequestMultiplePermissions(), grants ->
+                        startupLocation.permissionsResult(
+                                Boolean.TRUE.equals(grants.get(Manifest.permission.ACCESS_FINE_LOCATION)),
+                                Boolean.TRUE.equals(grants.get(Manifest.permission.ACCESS_COARSE_LOCATION))));
+        cityLocation = new AndroidCityLocation(this, () -> permissionRequest.launch(new String[] {
+                Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION
+        }));
+        startupLocation = new StartupLocationController(cityLocation, new StartupLocationController.Result() {
+            @Override public void city(String city) { getCurrentWeather(city); }
+            @Override public void failed() { binding.errorTextView.setText(R.string.location_failed); }
+        });
+        if (weatherModel.state().getValue() == null) {
+            startupLocation.start(usesStartupLocation() && weatherModel.isConfigured());
+            if (!weatherModel.isConfigured()) weatherModel.load(null);
+        }
     }
 
     public void getCurrentWeather(String city) {
-        options.put(QUERY, city);
-        openWeatherService.getCurrentWeatherByCityName(options).enqueue(new Callback<CurrentWeather>() {
-            @Override
-            public void onResponse(@NonNull Call<CurrentWeather> call, @NonNull Response<CurrentWeather> response) {
-                if (response.code() == HttpURLConnection.HTTP_OK){
-                    currentWeather = response.body();
-                    binding.cityTextView.setText(currentWeather.getName());
-                    binding.weatherTextView.setText(currentWeather.getWeather().get(0).getDescription());
-                    binding.temperatureTextView.setText(currentWeather.getMain().getTempMax() + " C");
-                    binding.windTextView.setText(""+currentWeather.getWind().getSpeed()+" km/h");
-                    binding.errorTextView.setText("");
-                } else{
-                    binding.errorTextView.setText(getString(R.string.open_weather_failed));
-                }
-            }
-
-            @Override
-            public void onFailure(@NonNull Call<CurrentWeather> call, @NonNull Throwable throwable) {
-                binding.errorTextView.setText(getString(R.string.open_weather_failed));
-            }
-        });
+        weatherModel.load(city);
     }
 
-    public void getLastLocation(){
-        if (locationUtility.permissionIsGranted()){
-            locationUtility.checkDeviceSettings(EasyLocationUtility.RequestCodes.LAST_KNOWN_LOCATION);
-            locationUtility.getLastKnownLocation(new LocationRequestCallback() {
-                @Override
-                public void onLocationResult(Location location) {
-                    getAddressElementsFromLocation(location);
-                }
-
-                @Override
-                public void onFailedRequest(String result) {
-                    binding.errorTextView.setText(getString(R.string.location_failed));
-                }
-            });
-        } else {
-            locationUtility.requestPermission(EasyLocationUtility.RequestCodes.LAST_KNOWN_LOCATION);
-        }
+    protected OpenWeatherService weatherService() {
+        return OpenWeather.getClient().create(OpenWeatherService.class);
     }
 
-    public void getAddressElementsFromLocation(Location location){
-        String city = addressUtility.getAddressElement(EasyAddressUtility.AddressCodes.CITY_NAME, location);
-        getCurrentWeather(city);
-    }
+    protected String weatherApiKey() { return getString(R.string.open_weather_api_key); }
+    protected boolean usesStartupLocation() { return true; }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        boolean requestGranted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-        if (requestGranted) {
-            getLastLocation();
-        } else {
-            binding.errorTextView.setText(getString(R.string.location_failed));
+    private void render(WeatherViewModel.State state) {
+        WeatherDisplay weather = state.weather;
+        binding.cityTextView.setText(weather == null ? "" : weather.city);
+        binding.weatherTextView.setText(weather == null ? "" : weather.description);
+        binding.temperatureTextView.setText(weather == null ? "" : weather.temperature);
+        binding.windTextView.setText(weather == null ? "" : weather.wind);
+        if (state.loading) binding.errorTextView.setText(R.string.weather_loading);
+        else if (state.error == null) binding.errorTextView.setText("");
+        else {
+            int message = state.error == WeatherController.Error.MISSING_API_KEY
+                    ? R.string.weather_key_missing
+                    : state.error == WeatherController.Error.EMPTY_CITY
+                    ? R.string.weather_city_missing : R.string.open_weather_failed;
+            binding.errorTextView.setText(message);
         }
     }
 
     @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (resultCode != RESULT_OK) {
-            binding.errorTextView.setText(getString(R.string.location_failed));
-        } else {
-            getLastLocation();
-        }
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        outState.putString("search_query", binding.searchView.getQuery().toString());
+        super.onSaveInstanceState(outState);
+    }
+
+    @Override
+    protected void onDestroy() {
+        startupLocation.stop();
+        cityLocation.close();
+        binding = null;
+        super.onDestroy();
     }
 }
