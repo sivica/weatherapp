@@ -1,0 +1,40 @@
+name: Checks
+
+"on":
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Use an isolated temporary Gradle home
+        run: echo "GRADLE_USER_HOME=$RUNNER_TEMP/weatherapp-gradle" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Validate workflow and fixture-only helper checks
+        run: |
+          ruby scripts/ci/verify_workflows.rb
+          python3 -m unittest discover -s scripts -p test_debug_key_entry.py -q
+          python3 -m unittest discover -s scripts/ci/tests -q
+      - name: Install pinned Android packages from the official SDK manager
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0"'
+      - name: Build key-free app and run lint and unit tests
+        run: ./gradlew --no-daemon --no-build-cache --no-configuration-cache :app:assembleDebug :app:bundleRelease :app:lintRelease :app:testDebugUnitTest
+      - name: Verify ordinary release has no weather key or fixture screen
+        run: python3 scripts/ci/verify_key_free.py
+# No secrets, protected environments, OIDC permission, cache or artifact uploads.

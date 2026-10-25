@@ -19,3 +19,12 @@ local.properties
 # Owner-only local debug credential; never commit.
 /debug-weather.properties
 **/__pycache__/
+
+# Local/CI signing and federation files; never publish build binaries.
+*.p12
+*.jks
+*.keystore
+*-password.txt
+gha-creds-*.json
+*.aab
+*.apk
