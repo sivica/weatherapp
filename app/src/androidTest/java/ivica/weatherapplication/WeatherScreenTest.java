@@ -1,9 +1,7 @@
 package ivica.weatherapplication;
 
-import android.Manifest;
 import android.graphics.Bitmap;
 import android.os.ParcelFileDescriptor;
-import android.view.accessibility.AccessibilityNodeInfo;
 
 import androidx.appcompat.widget.SearchView;
 import androidx.test.core.app.ActivityScenario;
@@ -17,12 +15,10 @@ import org.junit.runner.RunWith;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.util.List;
 import java.util.Locale;
 
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.*;
-import static org.hamcrest.Matchers.containsString;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
@@ -149,7 +145,7 @@ public class WeatherScreenTest {
             onView(withId(R.id.city_text_view)).check(matches(withText("Zagreb")));
             scenario.onActivity(WeatherScreenTest::assertContentAvoidsSystemBars);
             scenario.onActivity(activity -> assertEquals(1, FixtureWeatherActivity.fixture.calls.size()));
-            onView(withId(R.id.location_button)).perform(scrollTo());
+            onView(withId(R.id.privacy_policy_button)).perform(scrollTo());
             try { screenshot("quiet-landscape.png"); } catch (Exception e) { throw new AssertionError(e); }
         }
     }
@@ -174,35 +170,26 @@ public class WeatherScreenTest {
         }
     }
 
-    @Test public void locationPermissionRefusalLeavesCitySearchAvailable() throws Exception {
-        shell("pm revoke ivica.weatherapplication " + Manifest.permission.ACCESS_FINE_LOCATION);
-        shell("pm revoke ivica.weatherapplication " + Manifest.permission.ACCESS_COARSE_LOCATION);
-        // Repeated fixture runs must not inherit Android's permanent-denial flags.
-        shell("pm clear-permission-flags ivica.weatherapplication " + Manifest.permission.ACCESS_FINE_LOCATION + " user-set user-fixed");
-        shell("pm clear-permission-flags ivica.weatherapplication " + Manifest.permission.ACCESS_COARSE_LOCATION + " user-set user-fixed");
+    @Test public void manualCityOnlyStartsIdleAndRequestsNoLocationPermissions() throws Exception {
+        android.content.pm.PackageInfo installed = InstrumentationRegistry.getInstrumentation()
+                .getTargetContext().getPackageManager().getPackageInfo(
+                        "ivica.weatherapplication", android.content.pm.PackageManager.GET_PERMISSIONS);
+        java.util.List<String> permissions = installed.requestedPermissions == null
+                ? java.util.Collections.emptyList() : java.util.Arrays.asList(installed.requestedPermissions);
+        assertFalse(permissions.contains("android.permission.ACCESS_FINE_LOCATION"));
+        assertFalse(permissions.contains("android.permission.ACCESS_COARSE_LOCATION"));
+        assertFalse(permissions.contains("android.permission.ACCESS_BACKGROUND_LOCATION"));
         FixtureWeatherActivity.fixture.autoLoad = false;
         try (ActivityScenario<FixtureWeatherActivity> scenario = ActivityScenario.launch(FixtureWeatherActivity.class)) {
-            onView(withId(R.id.location_button)).perform(scrollTo(), click());
-            android.app.UiAutomation automation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
-            AccessibilityNodeInfo deny = null;
-            long deadline = android.os.SystemClock.uptimeMillis() + 10000;
-            while (deny == null && android.os.SystemClock.uptimeMillis() < deadline) {
-                AccessibilityNodeInfo root = automation.getRootInActiveWindow();
-                if (root != null) {
-                    List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByViewId(
-                            "com.android.permissioncontroller:id/permission_deny_button");
-                    if (!nodes.isEmpty()) deny = nodes.get(0);
-                }
-                if (deny == null) android.os.SystemClock.sleep(100);
-            }
-            assertNotNull("Location permission prompt did not appear", deny);
-            assertTrue(deny.performAction(AccessibilityNodeInfo.ACTION_CLICK));
-            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
-            onView(withId(R.id.error_text_view)).check(matches(withText(containsString(activityString(R.string.location_failed)))));
+            assertTrue(FixtureWeatherActivity.fixture.calls.isEmpty());
+            onView(withId(R.id.state_title)).check(matches(withText(R.string.weather_empty_title)));
+            scenario.recreate();
             assertTrue(FixtureWeatherActivity.fixture.calls.isEmpty());
             scenario.onActivity(activity -> ((SearchView) activity.findViewById(R.id.search_view)).setQuery("Manual", true));
             scenario.onActivity(activity -> FixtureWeatherActivity.fixture.calls.get(0).succeed());
             onView(withId(R.id.city_text_view)).check(matches(withText("Manual")));
+            onView(withId(R.id.privacy_policy_button)).perform(scrollTo());
+            screenshot("manual-city-only.png");
         }
     }
 
@@ -233,11 +220,11 @@ public class WeatherScreenTest {
         }
     }
 
-    @Test public void largeFontsKeepSearchAndLocationReachable() throws Exception {
+    @Test public void largeFontsKeepSearchAndPrivacyReachable() throws Exception {
         shell("settings put system font_scale 2.0");
         try (ActivityScenario<FixtureWeatherActivity> scenario = ActivityScenario.launch(FixtureWeatherActivity.class)) {
             scenario.onActivity(activity -> FixtureWeatherActivity.fixture.calls.get(0).succeed(24, 12.0 / 3.6, 801, "partly cloudy"));
-            onView(withId(R.id.location_button)).perform(scrollTo());
+            onView(withId(R.id.privacy_policy_button)).perform(scrollTo());
             scenario.onActivity(activity -> {
                 assertTrue(activity.getResources().getConfiguration().fontScale >= 1.9f);
                 assertContentAvoidsSystemBars(activity);

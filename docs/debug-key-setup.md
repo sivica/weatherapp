@@ -8,7 +8,7 @@ Ordinary checkout release builds keep `BuildConfig.OPENWEATHER_API_KEY` empty an
 ignore the local debug file. Debug builds can read the ignored root file
 `debug-weather.properties`. The separately protected internal CI overlay can
 explicitly embed a key; see [CI and internal release setup](../ci/README.md).
-Without a local key, the configuration message and request/location guards remain
+Without a local key, the configuration message and request guards remain
 active.
 
 On macOS, the local masked-entry helper can save an existing API key directly:
@@ -33,8 +33,8 @@ classes and local build state. Keep these outputs private; do not publish them,
 attach them to a PR, or use verbose logging/build scans. Debug task outputs are
 excluded from build caching and debug tasks cannot store a configuration cache.
 Use `--no-build-cache --no-configuration-cache` for private configured builds.
-Launching the normal screen does not automatically request weather or location.
-Submitting a city or tapping **Use my location** starts the selected lookup. Live
+Launching the normal screen does not automatically request weather.
+Submitting a city starts the lookup. Live
 weather requests send the configured key and city query to OpenWeather. The entry
 helper itself never launches the app or makes a request.
 

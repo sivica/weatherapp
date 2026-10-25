@@ -203,17 +203,6 @@
                 android:imeOptions="actionSearch"
                 android:inputType="textCapWords" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/location_button"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="48dp"
-                android:layout_marginTop="12dp"
-                android:text="@string/weather_use_location"
-                android:textSize="16sp"
-                android:textAllCaps="false"
-                android:textColor="@color/weather_ink" />
             <TextView
                 android:id="@+id/weather_source"
                 android:layout_width="match_parent"

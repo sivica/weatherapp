@@ -1,12 +1,12 @@
 # Vedro
 
 Vedro is a current-weather Android app built with Java/XML and ViewBinding.
-Search by city or use your location to get current conditions from OpenWeather.
+Search by city to get current conditions from OpenWeather. Device location is not requested.
 Source code is available here; the app has no public download.
 
 - Current temperature in °C and wind speed in km/h.
 - Quiet precision interface with compact artwork and clear loading/error states.
-- Explicit retry, with manual city search available when location permission is refused.
+- Explicit retry and manual city search, without location permissions.
 - Latest searches win: older responses are ignored, and weather state and pending
   requests survive rotation and Activity recreation.
 
@@ -14,7 +14,7 @@ Source code is available here; the app has no public download.
 
 | Current weather | Error and retry |
 | --- | --- |
-| <img src="docs/quiet-precision/quiet-success.png" alt="Vedro showing sample Skopje weather: partly cloudy, 24 degrees Celsius and 12 kilometres per hour" width="230"> | <img src="docs/quiet-precision/quiet-error.png" alt="Vedro sample error state with Retry Skopje, city search and Use my location" width="230"> |
+| <img src="docs/quiet-precision/quiet-success.png" alt="Vedro showing sample Skopje weather: partly cloudy, 24 degrees Celsius and 12 kilometres per hour" width="230"> | <img src="docs/quiet-precision/quiet-error.png" alt="Vedro sample error state with Retry Skopje and city search" width="230"> |
 
 Sample fixture data in genuine app captures.
 
@@ -32,8 +32,7 @@ For a fresh checkout without `debug-weather.properties`:
 
 An API key is optional for building; without one, the normal screen shows a
 configuration message instead of weather. For private live testing, follow the
-key-setup instructions linked below. Weather and location requests start only
-when you submit a city or tap **Use my location**.
+key-setup instructions linked below. Weather requests start only when you submit a city.
 
 ## Testing
 
@@ -47,7 +46,7 @@ results, device coverage and remaining acceptance gaps.
 
 Embedded weather keys are **extractable** from apps and build outputs. Never
 commit keys or publish configured APKs/AABs, generated code or private logs.
-City queries use HTTPS to OpenWeather; location permission is optional.
+City queries use HTTPS to OpenWeather. The app does not access device location.
 
 ## Documentation
 

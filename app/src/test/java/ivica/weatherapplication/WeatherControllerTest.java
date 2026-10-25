@@ -82,7 +82,7 @@ public class WeatherControllerTest {
         assertNull(listener.error);
     }
 
-    @Test public void locationChoiceCancelsAndIgnoresEarlierWeather() {
+    @Test public void cancellationIgnoresEarlierWeather() {
         controller.load("Earlier city");
         controller.cancelPending();
         service.calls.get(0).succeed(weather("Too late"));

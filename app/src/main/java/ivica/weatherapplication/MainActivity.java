@@ -1,6 +1,5 @@
 package ivica.weatherapplication;
 
-import android.Manifest;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.graphics.Color;
@@ -12,8 +11,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 import java.util.Locale;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModel;
@@ -29,8 +26,6 @@ import ivica.weatherapplication.databinding.ActivityMainBinding;
 
 public class MainActivity extends AppCompatActivity {
 
-    private AndroidCityLocation cityLocation;
-    private StartupLocationController startupLocation;
     private WeatherViewModel weatherModel;
     private ActivityMainBinding binding;
 
@@ -74,7 +69,6 @@ public class MainActivity extends AppCompatActivity {
         binding.searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextSubmit(String query) {
-                startupLocation.stop();
                 getCurrentWeather(query);
                 binding.searchView.clearFocus();
                 return true;
@@ -95,36 +89,12 @@ public class MainActivity extends AppCompatActivity {
         if (savedInstanceState != null) {
             binding.searchView.setQuery(savedInstanceState.getString("search_query", ""), false);
         }
-        ActivityResultLauncher<String[]> permissionRequest = registerForActivityResult(
-                new ActivityResultContracts.RequestMultiplePermissions(), grants ->
-                        startupLocation.permissionsResult(
-                                Boolean.TRUE.equals(grants.get(Manifest.permission.ACCESS_FINE_LOCATION)),
-                                Boolean.TRUE.equals(grants.get(Manifest.permission.ACCESS_COARSE_LOCATION))));
-        cityLocation = new AndroidCityLocation(this, () -> permissionRequest.launch(new String[] {
-                Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION
-        }));
-        startupLocation = new StartupLocationController(cityLocation, new StartupLocationController.Result() {
-            @Override public void city(String city) { getCurrentWeather(city); }
-            @Override public void failed() { weatherModel.locationFailed(); }
-        });
         binding.retryButton.setOnClickListener(view -> {
-            startupLocation.stop();
             getCurrentWeather(weatherModel.requestedCity());
-        });
-        binding.locationButton.setOnClickListener(view -> {
-            startupLocation.stop();
-            if (weatherModel.isConfigured()) {
-                weatherModel.beginLocation();
-                startupLocation.start(true);
-            }
-            else weatherModel.load(null);
         });
         if (weatherModel.state().getValue() == null) {
             render(new WeatherViewModel.State(false, null, null));
-            startupLocation.start(usesStartupLocation() && weatherModel.isConfigured());
             if (!weatherModel.isConfigured()) weatherModel.load(null);
-        } else if (weatherModel.isLocating()) {
-            startupLocation.start(true);
         }
     }
 
@@ -142,7 +112,6 @@ public class MainActivity extends AppCompatActivity {
         if (!getString(R.string.open_weather_api_key).isEmpty()) return "";
         return BuildConfig.OPENWEATHER_API_KEY;
     }
-    protected boolean usesStartupLocation() { return false; }
     protected boolean isFixtureData() { return false; }
 
     private void render(WeatherViewModel.State state) {
@@ -173,8 +142,6 @@ public class MainActivity extends AppCompatActivity {
             title = R.string.weather_loading_title;
             illustration = R.drawable.weather_loading;
             body = getString(R.string.weather_loading);
-        } else if (state.locationFailed) {
-            body = getString(R.string.location_failed) + ". " + getString(R.string.weather_empty_body);
         } else if (state.error != null) {
             title = R.string.weather_error_title;
             illustration = R.drawable.weather_error;
@@ -208,8 +175,6 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        startupLocation.stop();
-        cityLocation.close();
         binding = null;
         super.onDestroy();
     }
