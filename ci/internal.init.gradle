@@ -1,0 +1,42 @@
+import groovy.json.JsonOutput
+import java.nio.file.Files
+import java.nio.file.LinkOption
+import java.nio.file.attribute.PosixFilePermissions
+
+// Opt-in CI overlay. Ordinary local release builds remain key-free.
+gradle.beforeProject { project ->
+    project.plugins.withId('com.android.application') {
+        def versionText = project.providers.gradleProperty('weatherappCiVersionCode').orNull
+        if (!(versionText ==~ /[1-9][0-9]{0,9}/) || versionText.toLong() < 2L || versionText.toLong() > 2100000000L) {
+            throw new GradleException('A valid CI version code is required.')
+        }
+        def components = project.extensions.getByName('androidComponents')
+        components.finalizeDsl { dsl -> dsl.defaultConfig.versionCode = versionText.toInteger() }
+        def keyFile = project.providers.gradleProperty('weatherappCiKeyFile').orNull
+        if (keyFile != null) {
+            if (System.getenv('GITHUB_ACTIONS') != 'true'
+                    || System.getenv('GITHUB_REPOSITORY') != 'sivica/weatherapp'
+                    || System.getenv('GITHUB_REF') != 'refs/heads/main') {
+                throw new GradleException('Embedded release keys require the explicitly selected trusted CI build.')
+            }
+            def path = new File(keyFile).toPath()
+            if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
+                    || Files.getPosixFilePermissions(path) != PosixFilePermissions.fromString('rw-------')) {
+                throw new GradleException('CI weather input must be an owner-only regular file.')
+            }
+            String key = Files.readString(path).trim()
+            if (!(key ==~ /[A-Za-z0-9]{16,128}/)) throw new GradleException('Invalid CI weather input.')
+            def pluginLoader = project.plugins.getPlugin('com.android.application').class.classLoader
+            def fieldType = pluginLoader.loadClass('com.android.build.api.variant.BuildConfigField')
+            components.onVariants(components.selector().withBuildType('release')) { variant ->
+                def field = org.codehaus.groovy.runtime.InvokerHelper.invokeConstructorOf(fieldType,
+                        ['String', JsonOutput.toJson(key), 'Explicit internal-test CI configuration'] as Object[])
+                variant.buildConfigFields.put('OPENWEATHER_API_KEY', field)
+            }
+        }
+        project.tasks.configureEach {
+            outputs.doNotCacheIf('Private CI outputs can contain signing or weather material') { true }
+            notCompatibleWithConfigurationCache('Private internal-test CI build')
+        }
+    }
+}

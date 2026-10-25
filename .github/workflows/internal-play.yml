@@ -1,0 +1,118 @@
+name: Manual internal release
+
+"on":
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: New version code; first Console bootstrap uses 1
+        type: string
+        required: true
+        default: '2'
+      include_weather_key:
+        description: Embed the approved extractable weather key for private testing
+        type: boolean
+        default: true
+      upload_to_internal:
+        description: Upload only to the existing owner-only internal testing track
+        type: boolean
+        default: false
+      owner_only_testers_confirmed:
+        description: I checked that the internal tester list contains only my approved Google account
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+concurrency:
+  group: weatherapp-internal
+  cancel-in-progress: false
+
+env:
+  CI_VERSION_CODE: ${{ inputs.version_code }}
+  INCLUDE_WEATHER_KEY: ${{ inputs.include_weather_key }}
+  UPLOAD_TO_INTERNAL: ${{ inputs.upload_to_internal }}
+  OWNER_ONLY_TESTERS_CONFIRMED: ${{ inputs.owner_only_testers_confirmed }}
+
+jobs:
+  verify:
+    if: github.repository == 'sivica/weatherapp' && github.ref == 'refs/heads/main' && github.actor_id == '61886'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Use an isolated temporary Gradle home
+        run: echo "GRADLE_USER_HOME=$RUNNER_TEMP/weatherapp-gradle" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install pinned Android packages from the official SDK manager
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0"'
+      - name: Fixture-only CI safety checks
+        run: |
+          python3 -m unittest discover -s scripts/ci/tests -q
+          ruby scripts/ci/verify_workflows.rb
+      - name: Key-free lint and unit tests
+        run: ./gradlew --no-daemon --no-build-cache --no-configuration-cache :app:lintRelease :app:testDebugUnitTest
+
+  private_build:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: play-internal
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PLAY_PUBLISH_READY: ${{ vars.PLAY_PUBLISH_READY }}
+      PLAY_APP_BOOTSTRAPPED: ${{ vars.PLAY_APP_BOOTSTRAPPED }}
+      PLAY_WIF_PROVIDER: ${{ vars.PLAY_WIF_PROVIDER }}
+      PLAY_SERVICE_ACCOUNT: ${{ vars.PLAY_SERVICE_ACCOUNT }}
+    steps:
+      - name: Use an isolated temporary Gradle home
+        run: echo "GRADLE_USER_HOME=$RUNNER_TEMP/weatherapp-gradle" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Verify explicit publishing prerequisites
+        run: python3 scripts/ci/private_build.py guard
+      - name: Install pinned Android packages
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0"'
+      - name: Materialize approved secrets privately
+        env:
+          WEATHERAPP_UPLOAD_KEYSTORE_B64: ${{ secrets.WEATHERAPP_UPLOAD_KEYSTORE_B64 }}
+          WEATHERAPP_UPLOAD_PASSWORD: ${{ secrets.WEATHERAPP_UPLOAD_PASSWORD }}
+          WEATHERAPP_WEATHER_API_KEY: ${{ secrets.WEATHERAPP_WEATHER_API_KEY }}
+        run: python3 scripts/ci/private_build.py materialize
+      - name: Build private internal bundle without caches
+        run: python3 scripts/ci/private_build.py build
+      - name: Sign and verify identity, certificate, release isolation and selected key mode
+        run: python3 scripts/ci/private_build.py sign
+      - name: Obtain a five-minute app-scoped publishing token
+        if: inputs.upload_to_internal
+        id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.PLAY_WIF_PROVIDER }}
+          service_account: ${{ vars.PLAY_SERVICE_ACCOUNT }}
+          project_id: ${{ vars.PLAY_GCP_PROJECT_ID }}
+          token_format: access_token
+          access_token_lifetime: 300s
+          access_token_scopes: https://www.googleapis.com/auth/androidpublisher
+          create_credentials_file: false
+          export_environment_variables: false
+      - name: Publish and read back the fixed internal track
+        if: inputs.upload_to_internal
+        env:
+          PLAY_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: python3 scripts/ci/publish_internal.py
+      - name: Delete private inputs and build outputs
+        if: always()
+        run: python3 scripts/ci/private_build.py cleanup
+# Private outputs are never uploaded as GitHub artifacts or caches.

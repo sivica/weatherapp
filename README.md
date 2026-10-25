@@ -212,3 +212,11 @@ and no paid service or provider credential was used.
 - An unsigned release APK was built with synthetic input only for key-isolation
   verification. No release signing, store upload or deployment was performed.
   This is not yet a release-ready product.
+
+## GitHub automation
+
+See [CI and internal release setup](ci/README.md) for secret-free automatic checks
+and the protected manual internal-release workflow. Ordinary release builds remain
+key-free; only an explicitly selected internal CI build can embed the approved key.
+Google federation and app-scoped publishing access require separate approval and
+verification before enabling uploads. No production rollout is configured.
