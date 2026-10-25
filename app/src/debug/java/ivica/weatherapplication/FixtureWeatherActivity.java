@@ -9,7 +9,8 @@ public class FixtureWeatherActivity extends MainActivity {
     @Override protected OpenWeatherService weatherService() { return fixture; }
     @Override protected String weatherApiKey() { return fixture.configured ? "fixture-only" : ""; }
     @Override protected boolean usesStartupLocation() { return false; }
-    protected boolean autoLoadFixture() { return true; }
+    @Override protected boolean isFixtureData() { return true; }
+    protected boolean autoLoadFixture() { return fixture.autoLoad; }
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);

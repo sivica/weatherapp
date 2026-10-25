@@ -1,0 +1,7 @@
+<resources>
+    <color name="weather_surface">#FFFFFF</color>
+    <color name="weather_ink">#102D4D</color>
+    <color name="weather_muted">#4D6480</color>
+    <color name="weather_sky">#DAF1FF</color>
+    <color name="weather_search_surface">#E6F4FF</color>
+</resources>

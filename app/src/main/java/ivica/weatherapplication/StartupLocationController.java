@@ -17,6 +17,7 @@ final class StartupLocationController {
     private final Gateway gateway;
     private final Result listener;
     private boolean active;
+    private long generation;
 
     StartupLocationController(Gateway gateway, Result listener) {
         this.gateway = gateway;
@@ -24,6 +25,7 @@ final class StartupLocationController {
     }
 
     void start(boolean weatherConfigured) {
+        ++generation;
         active = weatherConfigured;
         if (!active) return;
         if (gateway.fineGranted() || gateway.coarseGranted()) fetch();
@@ -39,19 +41,20 @@ final class StartupLocationController {
         }
     }
 
-    void stop() { active = false; }
+    void stop() { active = false; ++generation; }
 
     private void fetch() {
+        long request = generation;
         gateway.findCity(new Result() {
             @Override public void city(String city) {
-                if (!active) return;
+                if (!active || request != generation) return;
                 active = false;
                 if (city == null || city.trim().isEmpty()) listener.failed();
                 else listener.city(city.trim());
             }
 
             @Override public void failed() {
-                if (!active) return;
+                if (!active || request != generation) return;
                 active = false;
                 listener.failed();
             }

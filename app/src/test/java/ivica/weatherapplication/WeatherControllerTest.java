@@ -82,6 +82,19 @@ public class WeatherControllerTest {
         assertNull(listener.error);
     }
 
+    @Test public void locationChoiceCancelsAndIgnoresEarlierWeather() {
+        controller.load("Earlier city");
+        controller.cancelPending();
+        service.calls.get(0).succeed(weather("Too late"));
+        service.calls.get(0).fail(new IOException("too late"));
+        assertTrue(service.calls.get(0).cancelled);
+        assertNull(listener.display);
+        assertNull(listener.error);
+        controller.load("Located city");
+        service.calls.get(1).succeed(weather("Located city"));
+        assertEquals("Located city", listener.display.city);
+    }
+
     @Test public void blankCityInvalidatesEarlierRequestWithoutMakingAnother() {
         controller.load("First");
         controller.load("   ");

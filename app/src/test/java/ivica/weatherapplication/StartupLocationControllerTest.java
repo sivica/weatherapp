@@ -59,6 +59,20 @@ public class StartupLocationControllerTest {
         assertEquals(0, result.failures);
     }
 
+    @Test public void restartedLocationIgnoresOlderAttempt() {
+        gateway.coarse = true;
+        controller.start(true);
+        StartupLocationController.Result older = gateway.callback;
+        controller.stop();
+        controller.start(true);
+        older.city("Stale city");
+        older.failed();
+        assertNull(result.city);
+        assertEquals(0, result.failures);
+        gateway.callback.city("Latest city");
+        assertEquals("Latest city", result.city);
+    }
+
     @Test public void noCachedLocationOrUsableCityReportsOneError() {
         gateway.coarse = true;
         for (String city : new String[] {null, "", "   "}) {

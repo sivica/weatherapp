@@ -21,6 +21,8 @@ import java.util.List;
 import java.util.Locale;
 
 import static androidx.test.espresso.Espresso.onView;
+import static androidx.test.espresso.action.ViewActions.*;
+import static org.hamcrest.Matchers.containsString;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
@@ -36,7 +38,7 @@ public class WeatherScreenTest {
             scenario.onActivity(activity -> FixtureWeatherActivity.fixture.calls.get(0).succeed());
             onView(withId(R.id.city_text_view)).check(matches(withText("Zagreb")));
             onView(withId(R.id.temperature_text_view)).check(matches(withText(
-                    String.format(Locale.getDefault(), "%.1f °C", 12.5))));
+                    String.format(Locale.getDefault(), "%.0f°", 12.5))));
             onView(withId(R.id.wind_text_view)).check(matches(withText(
                     String.format(Locale.getDefault(), "%.1f km/h", 18.0))));
             scenario.onActivity(WeatherScreenTest::assertContentAvoidsSystemBars);
@@ -47,11 +49,13 @@ public class WeatherScreenTest {
     @Test public void errorThenRetrySucceeds() {
         try (ActivityScenario<FixtureWeatherActivity> scenario = ActivityScenario.launch(FixtureWeatherActivity.class)) {
             scenario.onActivity(activity -> FixtureWeatherActivity.fixture.calls.get(0).fail());
-            onView(withId(R.id.error_text_view)).check(matches(withText(R.string.open_weather_failed)));
-            scenario.onActivity(activity -> ((SearchView) activity.findViewById(R.id.search_view)).setQuery("Retry", true));
+            onView(withId(R.id.error_text_view)).check(matches(withText(
+                    activityString(R.string.weather_error_body, "Zagreb"))));
+            scenario.onActivity(activity -> ((SearchView) activity.findViewById(R.id.search_view)).setQuery("Unsubmitted city", false));
+            onView(withId(R.id.retry_button)).perform(scrollTo(), click());
             onView(withId(R.id.error_text_view)).check(matches(withText(R.string.weather_loading)));
             scenario.onActivity(activity -> FixtureWeatherActivity.fixture.calls.get(1).succeed());
-            onView(withId(R.id.city_text_view)).check(matches(withText("Retry")));
+            onView(withId(R.id.city_text_view)).check(matches(withText("Zagreb")));
             onView(withId(R.id.error_text_view)).check(matches(withText("")));
         }
     }
@@ -108,6 +112,8 @@ public class WeatherScreenTest {
             onView(withId(R.id.city_text_view)).check(matches(withText("Zagreb")));
             scenario.onActivity(WeatherScreenTest::assertContentAvoidsSystemBars);
             scenario.onActivity(activity -> assertEquals(1, FixtureWeatherActivity.fixture.calls.size()));
+            onView(withId(R.id.location_button)).perform(scrollTo());
+            try { screenshot("quiet-landscape.png"); } catch (Exception e) { throw new AssertionError(e); }
         }
     }
 
@@ -134,7 +140,12 @@ public class WeatherScreenTest {
     @Test public void locationPermissionRefusalLeavesCitySearchAvailable() throws Exception {
         shell("pm revoke ivica.weatherapplication " + Manifest.permission.ACCESS_FINE_LOCATION);
         shell("pm revoke ivica.weatherapplication " + Manifest.permission.ACCESS_COARSE_LOCATION);
-        try (ActivityScenario<FixtureLocationActivity> scenario = ActivityScenario.launch(FixtureLocationActivity.class)) {
+        // Repeated fixture runs must not inherit Android's permanent-denial flags.
+        shell("pm clear-permission-flags ivica.weatherapplication " + Manifest.permission.ACCESS_FINE_LOCATION + " user-set user-fixed");
+        shell("pm clear-permission-flags ivica.weatherapplication " + Manifest.permission.ACCESS_COARSE_LOCATION + " user-set user-fixed");
+        FixtureWeatherActivity.fixture.autoLoad = false;
+        try (ActivityScenario<FixtureWeatherActivity> scenario = ActivityScenario.launch(FixtureWeatherActivity.class)) {
+            onView(withId(R.id.location_button)).perform(scrollTo(), click());
             android.app.UiAutomation automation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
             AccessibilityNodeInfo deny = null;
             long deadline = android.os.SystemClock.uptimeMillis() + 10000;
@@ -150,7 +161,7 @@ public class WeatherScreenTest {
             assertNotNull("Location permission prompt did not appear", deny);
             assertTrue(deny.performAction(AccessibilityNodeInfo.ACTION_CLICK));
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
-            onView(withId(R.id.error_text_view)).check(matches(withText(R.string.location_failed)));
+            onView(withId(R.id.error_text_view)).check(matches(withText(containsString(activityString(R.string.location_failed)))));
             assertTrue(FixtureWeatherActivity.fixture.calls.isEmpty());
             scenario.onActivity(activity -> ((SearchView) activity.findViewById(R.id.search_view)).setQuery("Manual", true));
             scenario.onActivity(activity -> FixtureWeatherActivity.fixture.calls.get(0).succeed());
@@ -158,10 +169,55 @@ public class WeatherScreenTest {
         }
     }
 
+    @Test public void emptySearchLoadingErrorAndRetryScreens() throws Exception {
+        FixtureWeatherActivity.fixture.autoLoad = false;
+        try (ActivityScenario<FixtureWeatherActivity> scenario = ActivityScenario.launch(FixtureWeatherActivity.class)) {
+            onView(withId(R.id.state_title)).check(matches(withText(R.string.weather_empty_title)));
+            screenshot("quiet-empty.png");
+            onView(withId(R.id.search_view)).perform(scrollTo());
+            onView(withId(androidx.appcompat.R.id.search_src_text)).perform(typeText("Skopje"), pressImeActionButton());
+            onView(withId(R.id.state_title)).check(matches(withText(R.string.weather_loading_title)));
+            screenshot("quiet-loading.png");
+            scenario.onActivity(activity -> FixtureWeatherActivity.fixture.calls.get(0).fail());
+            screenshot("quiet-error.png");
+            scenario.recreate();
+            onView(withId(R.id.retry_button)).check(matches(withText(activityString(R.string.weather_retry_city, "Skopje"))));
+            onView(withId(R.id.retry_button)).perform(scrollTo(), click());
+            scenario.onActivity(activity -> FixtureWeatherActivity.fixture.calls.get(1).succeed(24, 12.0 / 3.6, 801, "partly cloudy"));
+            onView(withId(R.id.city_text_view)).check(matches(withText("Skopje")));
+            onView(withId(R.id.temperature_text_view)).check(matches(withText("24°")));
+            onView(withId(R.id.weather_text_view)).check(matches(withText("Partly cloudy")));
+            scenario.onActivity(activity -> {
+                assertEquals(android.view.View.VISIBLE, activity.findViewById(R.id.condition_illustration).getVisibility());
+                assertContentAvoidsSystemBars(activity);
+            });
+            onView(withId(R.id.city_text_view)).perform(scrollTo());
+            screenshot("quiet-success.png");
+        }
+    }
+
+    @Test public void largeFontsKeepSearchAndLocationReachable() throws Exception {
+        shell("settings put system font_scale 2.0");
+        try (ActivityScenario<FixtureWeatherActivity> scenario = ActivityScenario.launch(FixtureWeatherActivity.class)) {
+            scenario.onActivity(activity -> FixtureWeatherActivity.fixture.calls.get(0).succeed(24, 12.0 / 3.6, 801, "partly cloudy"));
+            onView(withId(R.id.location_button)).perform(scrollTo());
+            scenario.onActivity(activity -> {
+                assertTrue(activity.getResources().getConfiguration().fontScale >= 1.9f);
+                assertContentAvoidsSystemBars(activity);
+                android.widget.TextView wind = activity.findViewById(R.id.wind_text_view);
+                assertTrue(wind.getLayout().getHeight() <= wind.getHeight());
+            });
+            screenshot("quiet-large-font.png");
+            onView(withId(R.id.search_view)).perform(scrollTo());
+            onView(withId(androidx.appcompat.R.id.search_src_text)).perform(replaceText("Large font"), pressImeActionButton());
+            assertEquals(2, FixtureWeatherActivity.fixture.calls.size());
+        } finally { shell("settings put system font_scale 1.0"); }
+    }
+
     private static void assertContentAvoidsSystemBars(MainActivity activity) {
         assertEquals("The QA APK must use the final target SDK", 37,
                 activity.getApplicationInfo().targetSdkVersion);
-        android.view.View root = activity.findViewById(R.id.toolbar).getRootView();
+        android.view.View root = activity.findViewById(R.id.weather_scroll).getRootView();
         androidx.core.view.WindowInsetsCompat windowInsets =
                 androidx.core.view.ViewCompat.getRootWindowInsets(root);
         assertNotNull("Window insets must be available", windowInsets);
@@ -170,18 +226,17 @@ public class WeatherScreenTest {
                         | androidx.core.view.WindowInsetsCompat.Type.displayCutout());
         int[] origin = new int[2];
         root.getLocationOnScreen(origin);
-        for (int id : new int[] {R.id.toolbar, R.id.city_text_view,
-                R.id.temperature_text_view, R.id.wind_text_view}) {
-            android.view.View content = activity.findViewById(id);
-            int[] position = new int[2];
-            content.getLocationOnScreen(position);
-            assertTrue("Content overlaps the status bar/cutout", position[1] >= origin[1] + safe.top);
-            assertTrue("Content overlaps the left cutout", position[0] >= origin[0] + safe.left);
-            assertTrue("Content overlaps the right system bar", position[0] + content.getWidth()
-                    <= origin[0] + root.getWidth() - safe.right);
-            assertTrue("Content overlaps the navigation bar", position[1] + content.getHeight()
-                    <= origin[1] + root.getHeight() - safe.bottom);
-        }
+        android.view.View viewport = activity.findViewById(R.id.weather_scroll);
+        android.graphics.Rect visible = new android.graphics.Rect();
+        assertTrue(viewport.getGlobalVisibleRect(visible));
+        assertTrue("Viewport overlaps status bar", visible.top + viewport.getPaddingTop() >= origin[1] + safe.top);
+        assertTrue("Viewport overlaps left cutout", visible.left + viewport.getPaddingLeft() >= origin[0] + safe.left);
+        assertTrue("Viewport overlaps right system bar", visible.right - viewport.getPaddingRight() <= origin[0] + root.getWidth() - safe.right);
+        assertTrue("Viewport overlaps navigation bar", visible.bottom - viewport.getPaddingBottom() <= origin[1] + root.getHeight() - safe.bottom);
+    }
+
+    private static String activityString(int id, Object... args) {
+        return InstrumentationRegistry.getInstrumentation().getTargetContext().getString(id, args);
     }
 
     private static void shell(String command) throws Exception {
