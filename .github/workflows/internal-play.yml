@@ -4,10 +4,9 @@ name: Manual internal release
   workflow_dispatch:
     inputs:
       version_code:
-        description: New version code; first Console bootstrap uses 1
+        description: Enter a fresh integer greater than every uploaded version; no default
         type: string
         required: true
-        default: '2'
       include_weather_key:
         description: Embed the approved extractable weather key for private testing
         type: boolean

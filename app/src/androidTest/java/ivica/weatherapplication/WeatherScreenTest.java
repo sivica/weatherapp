@@ -214,6 +214,31 @@ public class WeatherScreenTest {
         } finally { shell("settings put system font_scale 1.0"); }
     }
 
+    @Test public void artworkTracksDayNightAndMissingMetadataWithoutChangingWeatherText() throws Exception {
+        int[] ids = {801, 801, 801, 802, 802, 802, 800, 500};
+        String[] icons = {"02d", "02n", null, "03d", "03n", "unknown", "01d", "10d"};
+        boolean[] visible = {true, false, false, true, false, false, false, false};
+        try (ActivityScenario<FixtureWeatherActivity> scenario = ActivityScenario.launch(FixtureWeatherActivity.class)) {
+            for (int i = 0; i < ids.length; i++) {
+                final int index = i;
+                scenario.onActivity(activity -> {
+                    if (index > 0) activity.getCurrentWeather("Fixture " + index);
+                    FixtureWeatherActivity.fixture.calls.get(index)
+                            .succeed(-0.4, 1.0, ids[index], "fixture condition", icons[index]);
+                    assertEquals("artwork for " + ids[index] + "/" + icons[index],
+                            visible[index] ? android.view.View.VISIBLE : android.view.View.GONE,
+                            activity.findViewById(R.id.condition_illustration).getVisibility());
+                });
+                onView(withId(R.id.weather_text_view)).check(matches(withText("Fixture condition")));
+            }
+            onView(withId(R.id.temperature_text_view)).check(matches(withText("0°")));
+            scenario.onActivity(activity -> assertEquals(
+                    String.format(Locale.getDefault(), "%.1f °C", -0.4),
+                    activity.findViewById(R.id.temperature_text_view).getContentDescription()));
+            screenshot("quiet-review-regressions.png");
+        }
+    }
+
     private static void assertContentAvoidsSystemBars(MainActivity activity) {
         assertEquals("The QA APK must use the final target SDK", 37,
                 activity.getApplicationInfo().targetSdkVersion);

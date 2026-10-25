@@ -87,7 +87,8 @@ before uploading; never reuse a code after an uncertain upload.
 
 ## Manual run and verification
 
-Select `main`, choose a new version code, decide whether to include the approved
+Select `main`, explicitly enter a fresh version code greater than every uploaded
+version (the required field has no default), decide whether to include the approved
 weather key, and explicitly select `upload_to_internal`. Upload defaults to false.
 Before publishing, inspect the current internal tester list in Play Console and
 confirm that it still contains only the approved owner account. The workflow

@@ -4,11 +4,17 @@ Native Java/XML implementation of the approved [main screen](https://www.figma.c
 
 The UI branch is based on merged branding commit `ac0928051de56f3f4adbd6a6f4021bd8167550f6`. It uses the existing Vedro app-name resource, current-weather provider and retained ViewModel. The UI commit leaves the Vedro name and Clear sky launcher resources unchanged.
 
-The five Figma assets (sun/cloud, wind, empty, loading and error) were downloaded and converted directly to Android vectors, preserving their paths, fills, strokes, viewports and dimensions. The partly cloudy illustration is shown for condition IDs 801/802; other conditions use their textual description without that illustration. The loading illustration is static in this first pass. Both system appearance modes use the selected light palette.
+The five Figma assets (sun/cloud, wind, empty, loading and error) were downloaded and converted directly to Android vectors, preserving their paths, fills, strokes, viewports and dimensions. The partly cloudy illustration is shown only for matching daytime condition/icon pairs 801/02d and 802/03d. Nighttime, missing or unknown icon metadata, and other conditions use their textual description without that illustration. The loading illustration is static in this first pass. Both system appearance modes use the selected light palette.
 
 Search remains available during loading and errors. Explicit retry uses the failed request's city, including after activity recreation or edits to the unsubmitted query. Location access starts from **Use my location**; permission refusal preserves manual search. A location choice cancels older weather work, and callbacks from earlier location attempts cannot overwrite a later attempt. Search, results and pending requests survive activity recreation through the existing ViewModel.
 
-## Verified locally
+## Release-review regression fixes
+
+Day/night icon metadata is retained, and the sun artwork requires a matching daytime pair. Rounded temperatures between −0.5°C and 0.5°C display unsigned zero while the precise accessibility value is preserved. The manual release requires an explicitly entered fresh version code with no default; the live freshness guard and protected owner gate remain in place.
+
+Validation: **25 unit tests**, **12 fixture UI tests**, debug/release lint with no issues, debug/test APK and release bundle builds, and key-free release verification passed. UI fixtures cover transitions through day, night, missing and unknown icon metadata plus `0°` with a precise negative accessibility value. Unit cases cover both ±0.5°C rounding boundaries. Workflow checks reject reintroduced version defaults and an optional version field. No release or live API call was made.
+
+## Original UI validation
 
 - Debug app and instrumentation APK builds; ordinary release bundle build.
 - Debug and release lint: **no issues**.
