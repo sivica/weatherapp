@@ -1,11 +1,15 @@
 package ivica.weatherapplication;
 
 import android.Manifest;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.TextView;
+import android.widget.Toast;
 import java.util.Locale;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -59,6 +63,14 @@ public class MainActivity extends AppCompatActivity {
         binding.getRoot().requestFocus();
         binding.weatherSource.setText(isFixtureData()
                 ? R.string.weather_fixture_units : R.string.weather_units);
+        binding.privacyPolicyButton.setOnClickListener(view -> {
+            try {
+                startActivity(new Intent(Intent.ACTION_VIEW,
+                        Uri.parse(getString(R.string.privacy_policy_url))));
+            } catch (ActivityNotFoundException unavailable) {
+                Toast.makeText(this, R.string.privacy_browser_unavailable, Toast.LENGTH_LONG).show();
+            }
+        });
         binding.searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextSubmit(String query) {

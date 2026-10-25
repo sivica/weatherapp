@@ -32,6 +32,43 @@ import static org.junit.Assert.*;
 public class WeatherScreenTest {
     @Before public void resetTransport() { FixtureWeatherActivity.fixture = new FixtureWeatherService(); }
 
+    @Test @androidx.test.filters.SdkSuppress(minSdkVersion = 26)
+    public void privacyLinkOpensOnlyThePublicPolicyWithoutWeatherRequests() throws Exception {
+        try (ActivityScenario<FixtureWeatherActivity> scenario = ActivityScenario.launch(FixtureWeatherActivity.class)) {
+            java.util.concurrent.atomic.AtomicReference<android.content.Intent> opened = new java.util.concurrent.atomic.AtomicReference<>();
+            android.app.Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+            android.app.Instrumentation.ActivityMonitor monitor = new android.app.Instrumentation.ActivityMonitor() {
+                @Override public android.app.Instrumentation.ActivityResult onStartActivity(android.content.Intent intent) {
+                    opened.set(intent);
+                    return new android.app.Instrumentation.ActivityResult(android.app.Activity.RESULT_OK, null);
+                }
+            };
+            instrumentation.addMonitor(monitor);
+            try {
+                onView(withId(R.id.privacy_policy_button)).perform(scrollTo(), click());
+                assertNotNull(opened.get());
+                assertEquals(android.content.Intent.ACTION_VIEW, opened.get().getAction());
+                assertEquals("https://sivica.github.io/weatherapp/privacy/", opened.get().getDataString());
+                assertNull(opened.get().getExtras());
+                assertEquals(1, FixtureWeatherActivity.fixture.calls.size());
+                scenario.onActivity(activity -> FixtureWeatherActivity.fixture.calls.get(0).succeed());
+                opened.set(null);
+                onView(withId(R.id.privacy_policy_button)).perform(scrollTo(), click());
+                assertNotNull(opened.get());
+                assertEquals("https://sivica.github.io/weatherapp/privacy/", opened.get().getDataString());
+                assertEquals(1, FixtureWeatherActivity.fixture.calls.size());
+                scenario.onActivity(activity -> {
+                    android.view.View button = activity.findViewById(R.id.privacy_policy_button);
+                    assertEquals(activity.getString(R.string.privacy_policy_open_browser), button.getContentDescription());
+                    assertTrue(button.getHeight() >= 48 * activity.getResources().getDisplayMetrics().density);
+                });
+                screenshot("privacy-link-fixture.png");
+            } finally {
+                instrumentation.removeMonitor(monitor);
+            }
+        }
+    }
+
     @Test public void loadingSuccessUsesCurrentTemperatureAndConvertedWind() throws Exception {
         try (ActivityScenario<FixtureWeatherActivity> scenario = ActivityScenario.launch(FixtureWeatherActivity.class)) {
             onView(withId(R.id.error_text_view)).check(matches(withText(R.string.weather_loading)));

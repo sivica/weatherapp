@@ -1,0 +1,6 @@
+<resources>
+    <string name="privacy_policy">Privacy policy</string>
+    <string name="privacy_policy_open_browser">Privacy policy, opens in browser</string>
+    <string name="privacy_policy_url" translatable="false">https://sivica.github.io/weatherapp/privacy/</string>
+    <string name="privacy_browser_unavailable">No browser is available to open the privacy policy.</string>
+</resources>
