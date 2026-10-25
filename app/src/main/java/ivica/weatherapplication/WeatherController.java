@@ -82,6 +82,11 @@ final class WeatherController {
         });
     }
 
+    void cancelPending() {
+        ++generation;
+        cancelActive();
+    }
+
     void close() {
         closed = true;
         ++generation;

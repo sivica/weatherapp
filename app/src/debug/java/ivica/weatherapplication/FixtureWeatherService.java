@@ -17,6 +17,7 @@ import retrofit2.Response;
 /** Debug-only manual transport. Every call is an in-memory fixture; no HTTP client exists. */
 public final class FixtureWeatherService implements OpenWeatherService {
     public boolean configured = true;
+    public boolean autoLoad = true;
     public final List<Pending> calls = new ArrayList<>();
 
     @Override public Call<CurrentWeather> getCurrentWeatherByCityName(Map<String, String> options) {
@@ -31,19 +32,21 @@ public final class FixtureWeatherService implements OpenWeatherService {
         public boolean canceled;
 
         Pending(String city) { this.city = city; }
-        public void succeed() {
+        public void succeed() { succeed(12.5, 5.0, 800, "clear sky"); }
+        public void succeed(double temperature, double windSpeed, int conditionId, String condition) {
             CurrentWeather weather = new CurrentWeather();
             weather.setName(city);
             weather.setCod(200);
             Main main = new Main();
-            main.setTemp(12.5);
+            main.setTemp(temperature);
             main.setTempMax(19.0);
             weather.setMain(main);
             Wind wind = new Wind();
-            wind.setSpeed(5.0);
+            wind.setSpeed(windSpeed);
             weather.setWind(wind);
             Weather description = new Weather();
-            description.setDescription("clear sky");
+            description.setId(conditionId);
+            description.setDescription(condition);
             weather.setWeather(java.util.Collections.singletonList(description));
             callback.onResponse(this, Response.success(weather));
         }

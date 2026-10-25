@@ -1,7 +1,7 @@
 {
   "cod": 200,
   "name": "Zagreb",
-  "weather": [{"description": "clear sky"}],
+  "weather": [{"id": 800, "description": "clear sky"}],
   "main": {"temp": 12.5, "temp_max": 19.0},
   "wind": {"speed": 5.0}
 }

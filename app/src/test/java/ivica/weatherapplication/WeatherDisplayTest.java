@@ -40,6 +40,8 @@ public class WeatherDisplayTest {
         assertEquals("Zagreb", display.city);
         assertEquals("clear sky", display.description);
         assertEquals("12.5 °C", display.temperature);
+        assertEquals("13°", display.heroTemperature);
+        assertEquals(Integer.valueOf(800), display.conditionId);
         assertEquals("18.0 km/h", display.wind);
     }
 

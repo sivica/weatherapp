@@ -10,9 +10,13 @@ final class WeatherDisplay {
     final String description;
     final String temperature;
     final String wind;
+    final String heroTemperature;
+    final Integer conditionId;
 
-    private WeatherDisplay(String city, String description, double temperature, double windKmh) {
+    private WeatherDisplay(String city, String description, double temperature, double windKmh, Integer conditionId) {
         this.city = city;
+        this.conditionId = conditionId;
+        this.heroTemperature = String.format(Locale.getDefault(), "%.0f°", temperature);
         this.description = description;
         this.temperature = String.format(Locale.getDefault(), "%.1f °C", temperature);
         this.wind = String.format(Locale.getDefault(), "%.1f km/h", windKmh);
@@ -34,7 +38,7 @@ final class WeatherDisplay {
         }
         return new WeatherDisplay(weather.getName().trim(),
                 weather.getWeather().get(0).getDescription().trim(),
-                weather.getMain().getTemp(), windKmh);
+                weather.getMain().getTemp(), windKmh, weather.getWeather().get(0).getId());
     }
 
     private static boolean empty(String value) {
