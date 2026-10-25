@@ -1,41 +1,43 @@
 # Validation evidence and history
 
-## Current app revision
+## Current manual-city-only revision
 
-App code at [`13d8db4483d3b9804143c2061985e5d98671641a`](https://github.com/sivica/weatherapp/commit/13d8db4483d3b9804143c2061985e5d98671641a)
-was verified on **2026-10-25** with **25 unit tests**, **12 fixture UI tests on API 36
-ARM64**, clean debug/release lint, app/test APK and ordinary release bundle builds,
-and key-free release verification. [Post-merge main CI](https://github.com/sivica/weatherapp/actions/runs/40201847773)
-passed. The UI and its review fixes have not been published in the last verified
-internal release.
+Verified on **2026-10-25**: **17 unit tests**, **13 fixture tests on API 37 ARM64**, clean debug/release lint,
+app/test APK and ordinary release bundle builds, and key-free release validation.
+Eight tests for the deleted location controller were removed; weather mapping,
+request cancellation and latest-request ordering tests remain.
 
-The [Quiet precision QA record](quiet-precision/README.md) owns detailed UI
-coverage, limits and the current fixture screenshots. Earlier test counts in that
-record are labeled separately from its release-review regression results.
-Private signed-bundle verification must run again for any future internal release;
-ordinary key-free CI is not proof of that step.
+The app now uses manual city search only. The location action, foreground
+permissions, fused-location/geocoder implementation, debug location activity and
+Play services location dependency are removed. Both merged manifests and the
+resolved release dependency graph are checked for location remnants.
+
+The [Quiet precision QA record](quiet-precision/README.md) contains historical
+results and fixture screenshots. Current fixture coverage includes idle startup without location permissions,
+city search, error/retry, latest response ordering, rotation, large fonts and the
+privacy link. No AVD data was wiped, and the task emulator was stopped afterward. Private signing and Play readback are separate checks in
+any internal-release workflow.
 
 ## Known limits
 
-Current UI acceptance on API 37 and physical devices, TalkBack, granted-location
-behavior and rotation during the permission dialog remain unverified. Broader OEM
-coverage and live GPS/geocoding accuracy are also outside the verified scope.
-Weather data is retained across Activity recreation, but process-death restoration
-is not implemented. Older device/provider runs below do not close these gaps.
+No new live-provider, physical-device or TalkBack acceptance was run. Broader OEM
+coverage remains unverified. Weather data is retained across Activity recreation,
+but process-death restoration is not implemented. Manual city queries still leave
+the device over HTTPS; removing device location does not mean no data collection.
 
 ## Verified internal distribution
 
-| Version code | Revision / evidence | Scope |
+| Version code | Evidence | Scope |
 | --- | --- | --- |
-| 1 | Initial manually uploaded 1.0 bundle, recorded 2026-10-25 | Historical owner-only internal bootstrap |
-| 2 | `071ae861`; [first automated internal release](https://github.com/sivica/weatherapp/actions/runs/40192544804) | Historical owner-only internal release |
-| 3 | `ac092805`; [branding internal release](https://github.com/sivica/weatherapp/actions/runs/40196639232) | Last verified published 1.0 internal release; owner-only |
+| 1 | Initial manually uploaded 1.0 bundle, recorded 2026-10-25 | Historical owner-only bootstrap |
+| 2 | [First automated release](https://github.com/sivica/weatherapp/actions/runs/40192544804) | Owner-only internal |
+| 3 | [Branding release](https://github.com/sivica/weatherapp/actions/runs/40196639232) | Owner-only internal |
+| 4 | [Quiet precision release](https://github.com/sivica/weatherapp/actions/runs/40206782524) | Owner-only internal |
+| 5 | [Privacy-link release](https://github.com/sivica/weatherapp/actions/runs/40211564673), source `ed4c11036458500a371617401b7e71cee398b1a1` | Last verified available internal release; contains optional device location |
 
-The code-3 workflow completed verification, private signing, internal upload and
-readback, and cleanup. That release predates the new UI. A successful upload does
-not verify Play installation or acceptance on the owner's own phone. No newer
-release is claimed here. The [CI guide](../ci/README.md) owns publishing guards,
-version selection and credential handling.
+The manual-city-only change has not yet been released. A successful upload does
+not verify Play installation on the owner's own phone. The
+[CI guide](../ci/README.md) describes publishing guards and credential handling.
 
 ## Historical validation before Quiet precision
 

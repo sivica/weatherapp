@@ -4,13 +4,12 @@
     <string name="weather_city_missing">Enter a city name.</string>
     <string name="weather_loading">Getting current conditions. You can search for a different city.</string>
     <string name="weather_empty_title">Weather, wherever you are.</string>
-    <string name="weather_empty_body">Search for a city to see its current weather. Location is optional.</string>
+    <string name="weather_empty_body">Search for a city to see its current weather.</string>
     <string name="weather_loading_title">Finding your weather…</string>
     <string name="weather_error_title">Couldn’t load the weather.</string>
     <string name="weather_error_body">Please check your connection and try %1$s again, or search for another city.</string>
     <string name="weather_search_hint">Search city</string>
     <string name="weather_search_another">Search another city</string>
-    <string name="weather_use_location">Use my location</string>
     <string name="weather_retry">Retry</string>
     <string name="weather_retry_city">Retry %1$s</string>
     <string name="weather_wind_label">Wind</string>

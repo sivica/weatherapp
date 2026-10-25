@@ -1,5 +1,4 @@
 <resources>
     <string name="app_name">Vedro</string>
     <string name="open_weather_api_key"></string>
-    <string name="location_failed">Location request failed</string>
 </resources>
