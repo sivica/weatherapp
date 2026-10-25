@@ -12,9 +12,16 @@ internal release.
 The [Quiet precision QA record](quiet-precision/README.md) owns detailed UI
 coverage, limits and the current fixture screenshots. Earlier test counts in that
 record are labeled separately from its release-review regression results.
-Current API 37/physical-device, TalkBack and live-provider acceptance are not
-established by older runs below. Private signed-bundle verification must run again
-for any future internal release; ordinary key-free CI is not proof of that step.
+Private signed-bundle verification must run again for any future internal release;
+ordinary key-free CI is not proof of that step.
+
+## Known limits
+
+Current UI acceptance on API 37 and physical devices, TalkBack, granted-location
+behavior and rotation during the permission dialog remain unverified. Broader OEM
+coverage and live GPS/geocoding accuracy are also outside the verified scope.
+Weather data is retained across Activity recreation, but process-death restoration
+is not implemented. Older device/provider runs below do not close these gaps.
 
 ## Verified internal distribution
 

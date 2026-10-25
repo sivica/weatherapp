@@ -26,6 +26,19 @@ Use the [README quick start](../README.md#quick-start) for build and test comman
 Check [private debug key handling](debug-key-setup.md) before using an already
 configured checkout.
 
+## Fixture UI tests
+
+Select an available local device explicitly. Instrumentation uses the in-memory
+debug fixtures, independent of any local key, and makes no weather-provider calls:
+
+```sh
+ANDROID_SERIAL="your-device-serial" ./gradlew --no-daemon :app:connectedDebugAndroidTest
+```
+
+Replace `your-device-serial` with the selected device's serial. Reports are under
+`app/build/reports/`; connected instrumentation results are under
+`app/build/outputs/androidTest-results/connected/`.
+
 ## Dependency troubleshooting
 
 Offline builds require the project's dependencies to have been downloaded first.
