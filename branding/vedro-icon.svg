@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="18 18 72 72">
+  <title>Vedro — Clear sky</title>
+  <rect x="0" y="0" width="108" height="108" fill="#2FA3FA"/>
+  <circle cx="46.6" cy="52" r="14.4" fill="#FFE66B"/>
+  <path fill="#FFFDF8" d="M26.1 70.8 C26.1 64.3 31.3 59 37.7 59 C39.6 59 41.4 59.4 43 60.2 C44.9 52.7 51.4 46.8 59.3 46.8 C68 46.8 75.1 53 75.8 60.8 C79.7 60.9 82.2 64.1 82.2 68 L82.2 70.8 Z"/>
+</svg>

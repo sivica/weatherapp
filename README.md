@@ -1,4 +1,4 @@
-# Weather application
+# Vedro
 
 A Java/XML Android weather app using ViewBinding, Retrofit and OpenWeather's
 Current Weather endpoint. The current milestone modernizes the build and fixes

@@ -50,7 +50,7 @@ def publish(client,bundle,report):
         uploaded=client.call('POST',UPLOAD+'/edits/'+edit+'/bundles?uploadType=media',binary=bundle.read_bytes())
         if int(uploaded['versionCode'])!=code:raise PublishError('Play returned an unexpected bundle version.')
         # Track and status are constants, never user input. No listing/tester/account APIs are called.
-        track={'track':'internal','releases':[{'versionCodes':[str(code)],'status':'completed','name':'Weatherapp internal '+str(code)}]}
+        track={'track':'internal','releases':[{'versionCodes':[str(code)],'status':'completed','name':'Vedro internal '+str(code)}]}
         client.call('PUT',BASE+'/edits/'+edit+'/tracks/internal',track)
         client.call('POST',BASE+'/edits/'+edit+':validate',{})
         committing=True
