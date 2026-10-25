@@ -34,6 +34,11 @@ public final class FixtureWeatherService implements OpenWeatherService {
         Pending(String city) { this.city = city; }
         public void succeed() { succeed(12.5, 5.0, 800, "clear sky"); }
         public void succeed(double temperature, double windSpeed, int conditionId, String condition) {
+            String icon = conditionId == 801 ? "02d" : conditionId == 802 ? "03d"
+                    : conditionId == 800 ? "01d" : null;
+            succeed(temperature, windSpeed, conditionId, condition, icon);
+        }
+        public void succeed(double temperature, double windSpeed, int conditionId, String condition, String icon) {
             CurrentWeather weather = new CurrentWeather();
             weather.setName(city);
             weather.setCod(200);
@@ -46,6 +51,7 @@ public final class FixtureWeatherService implements OpenWeatherService {
             weather.setWind(wind);
             Weather description = new Weather();
             description.setId(conditionId);
+            description.setIcon(icon);
             description.setDescription(condition);
             weather.setWeather(java.util.Collections.singletonList(description));
             callback.onResponse(this, Response.success(weather));

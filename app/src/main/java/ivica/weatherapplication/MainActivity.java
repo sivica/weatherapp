@@ -148,10 +148,9 @@ public class MainActivity extends AppCompatActivity {
         binding.temperatureTextView.setText(success ? weather.heroTemperature : "");
         binding.temperatureTextView.setContentDescription(success ? weather.temperature : null);
         binding.windTextView.setText(success ? weather.wind : "");
-        // This approved illustration represents partly cloudy conditions only.
-        // Other observations retain the provider's description without a misleading icon.
-        binding.conditionIllustration.setVisibility(success && weather.conditionId != null
-                && (weather.conditionId == 801 || weather.conditionId == 802)
+        // The approved sun artwork represents daytime partly cloudy conditions only.
+        // Night and unknown icon metadata retain text without a misleading illustration.
+        binding.conditionIllustration.setVisibility(success && weather.showsPartlyCloudyIllustration()
                 ? View.VISIBLE : View.GONE);
         binding.errorTextView.setText("");
         if (success) return;

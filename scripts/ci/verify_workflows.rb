@@ -25,6 +25,8 @@ checks.fetch('on').each_value { |event| raise 'Checks target main only' unless e
 raise 'Automatic checks must not use secrets, OIDC or environments' if check_source.match?(/secrets\.|id-token:|environment:/)
 release, release_source = workflows.fetch('internal-play.yml')
 raise 'Release must be manual only' unless release.fetch('on').keys == ['workflow_dispatch']
+version_input = release.fetch('on').fetch('workflow_dispatch').fetch('inputs').fetch('version_code')
+raise 'Release version must be explicitly entered without a default' unless version_input['type'] == 'string' && version_input['required'] == true && !version_input.key?('default')
 job = release.fetch('jobs').fetch('private_build')
 raise 'Release must use protected environment' unless job.fetch('environment') == 'play-internal'
 raise 'OIDC must belong only to private job' unless job.fetch('permissions') == {'contents'=>'read','id-token'=>'write'}

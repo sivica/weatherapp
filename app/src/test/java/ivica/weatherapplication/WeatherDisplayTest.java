@@ -55,6 +55,41 @@ public class WeatherDisplayTest {
         assertEquals("0.0 km/h", display.wind);
     }
 
+    @Test public void sunArtworkRequiresMatchingDaytimeCloudMetadata() {
+        for (int id : new int[] {801, 802}) {
+            String dayIcon = id == 801 ? "02d" : "03d";
+            String nightIcon = id == 801 ? "02n" : "03n";
+            for (String icon : new String[] {dayIcon, nightIcon, null, "", "unknown", "01d"}) {
+                CurrentWeather weather = fixture("current-weather.json");
+                weather.getWeather().get(0).setId(id);
+                weather.getWeather().get(0).setIcon(icon);
+                WeatherDisplay display = WeatherDisplay.from(weather);
+                assertEquals(icon, display.conditionIcon);
+                assertEquals("condition " + id + ", icon " + icon,
+                        dayIcon.equals(icon), display.showsPartlyCloudyIllustration());
+            }
+        }
+        for (Integer id : new Integer[] {null, 800, 500, 600, 741, 803, 804}) {
+            CurrentWeather weather = fixture("current-weather.json");
+            weather.getWeather().get(0).setId(id);
+            weather.getWeather().get(0).setIcon("02d");
+            assertFalse(WeatherDisplay.from(weather).showsPartlyCloudyIllustration());
+        }
+    }
+
+    @Test public void roundedZeroIsUnsignedAndAccessibleTemperatureKeepsItsPrecision() {
+        double[] values = {-0.51, -0.5, -0.49, -0.4, -0.0, 0.0, 0.49, 0.5, 0.51};
+        String[] hero = {"-1°", "-1°", "0°", "0°", "0°", "0°", "0°", "1°", "1°"};
+        String[] precise = {"-0.5 °C", "-0.5 °C", "-0.5 °C", "-0.4 °C", "-0.0 °C", "0.0 °C", "0.5 °C", "0.5 °C", "0.5 °C"};
+        for (int i = 0; i < values.length; i++) {
+            CurrentWeather weather = fixture("current-weather.json");
+            weather.getMain().setTemp(values[i]);
+            WeatherDisplay display = WeatherDisplay.from(weather);
+            assertEquals("hero for " + values[i], hero[i], display.heroTemperature);
+            assertEquals("precise for " + values[i], precise[i], display.temperature);
+        }
+    }
+
     @Test public void rejectsIncompleteAndErrorFixturesAndNullBody() {
         rejects(null);
         rejects(fixture("incomplete-weather.json"));

@@ -12,11 +12,15 @@ final class WeatherDisplay {
     final String wind;
     final String heroTemperature;
     final Integer conditionId;
+    final String conditionIcon;
 
-    private WeatherDisplay(String city, String description, double temperature, double windKmh, Integer conditionId) {
+    private WeatherDisplay(String city, String description, double temperature, double windKmh,
+            Integer conditionId, String conditionIcon) {
         this.city = city;
         this.conditionId = conditionId;
-        this.heroTemperature = String.format(Locale.getDefault(), "%.0f°", temperature);
+        this.conditionIcon = conditionIcon;
+        double heroValue = Math.abs(temperature) < 0.5 ? 0.0 : temperature;
+        this.heroTemperature = String.format(Locale.getDefault(), "%.0f°", heroValue);
         this.description = description;
         this.temperature = String.format(Locale.getDefault(), "%.1f °C", temperature);
         this.wind = String.format(Locale.getDefault(), "%.1f km/h", windKmh);
@@ -38,7 +42,13 @@ final class WeatherDisplay {
         }
         return new WeatherDisplay(weather.getName().trim(),
                 weather.getWeather().get(0).getDescription().trim(),
-                weather.getMain().getTemp(), windKmh, weather.getWeather().get(0).getId());
+                weather.getMain().getTemp(), windKmh, weather.getWeather().get(0).getId(),
+                weather.getWeather().get(0).getIcon());
+    }
+
+    boolean showsPartlyCloudyIllustration() {
+        return (Integer.valueOf(801).equals(conditionId) && "02d".equals(conditionIcon))
+                || (Integer.valueOf(802).equals(conditionId) && "03d".equals(conditionIcon));
     }
 
     private static boolean empty(String value) {
